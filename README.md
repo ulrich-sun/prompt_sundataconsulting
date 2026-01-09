@@ -2,5 +2,5 @@
 
 
 ## Basic Tools
-    - [For Linux](readme/basic_tools_linux.md)
-    - [For Linux](readme/basic_tools_windows.md)
+- [For Linux](readme/basic_tools_linux.md)
+- [For Linux](readme/basic_tools_windows.md)

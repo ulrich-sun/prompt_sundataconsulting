@@ -1,22 +1,24 @@
 #!/bin/bash
 
 # =======================================
-# DevSecOps Tools Checker & Installer - Ubuntu
+# DevSecOps Tools Checker & Installer - Ubuntu (Version Locked)
 # =======================================
 
-# Liste des programmes et versions
-declare -A tools
-tools=(
-  ["git"]="2.41"
-  ["code"]="1.91.0"
-  ["vagrant"]="2.4.0"
-  ["virtualbox"]="7.0"
-  ["docker"]="24.0"
-  ["kubectl"]="1.29"
-  ["mobaXterm"]="non applicable"
-)
+set -e
 
-# Extensions VSCode a verifier
+# -------------------------
+# Versions cibles
+# -------------------------
+GIT_VERSION="1:2.41.*"
+VAGRANT_VERSION="2.4.0"
+VIRTUALBOX_VERSION="7.0"
+DOCKER_VERSION="5:24.0.*"
+KUBECTL_VERSION="v1.29.0"
+VSCODE_CHANNEL="1.91/stable"
+
+# -------------------------
+# Extensions VSCode
+# -------------------------
 extensions=(
   "eamodio.gitlens"
   "redhat.vscode-yaml"
@@ -27,97 +29,105 @@ extensions=(
   "hashicorp.terraform"
 )
 
-# Fonction pour verifier si programme existe
-check_program() {
+# -------------------------
+# Fonctions utilitaires
+# -------------------------
+check_cmd() {
   command -v "$1" >/dev/null 2>&1
 }
 
-# Outils manquants
+check_pkg_version() {
+  dpkg -l | grep -E "^ii\s+$1\s+$2" >/dev/null 2>&1
+}
+
+check_virtualbox() {
+  check_cmd VBoxManage
+}
+
+check_docker() {
+  check_cmd docker && systemctl is-active --quiet docker
+}
+
+# -------------------------
+# Vérification
+# -------------------------
 missing_tools=()
-for tool in "${!tools[@]}"; do
-  if check_program "$tool"; then
-    echo "$tool : installe"
-  else
-    echo "$tool : manquant"
-    missing_tools+=("$tool")
-  fi
-done
 
-# Extensions VSCode manquantes
+check_pkg_version git "$GIT_VERSION" || missing_tools+=("git")
+check_cmd vagrant || missing_tools+=("vagrant")
+check_virtualbox || missing_tools+=("virtualbox")
+check_docker || missing_tools+=("docker")
+check_cmd kubectl || missing_tools+=("kubectl")
+check_cmd code || missing_tools+=("code")
+
+# -------------------------
+# Vérification extensions VSCode
+# -------------------------
 missing_extensions=()
-for ext in "${extensions[@]}"; do
-  if code --list-extensions | grep -q "$ext"; then
-    echo "Extension VSCode $ext : installee"
-  else
-    echo "Extension VSCode $ext : manquante"
-    missing_extensions+=("$ext")
-  fi
-done
+if check_cmd code; then
+  for ext in "${extensions[@]}"; do
+    code --list-extensions | grep -q "^$ext$" || missing_extensions+=("$ext")
+  done
+fi
 
-# Si tout est present
+# -------------------------
+# Résumé
+# -------------------------
 if [ ${#missing_tools[@]} -eq 0 ] && [ ${#missing_extensions[@]} -eq 0 ]; then
-  echo "Tous les outils et extensions sont deja installes."
+  echo "Tous les outils et extensions sont installes avec les bonnes versions."
   exit 0
 fi
 
-# Afficher manquants
 echo
-if [ ${#missing_tools[@]} -gt 0 ]; then
-  echo "Programmes manquants : ${missing_tools[*]}"
-fi
-if [ ${#missing_extensions[@]} -gt 0 ]; then
-  echo "Extensions VSCode manquantes : ${missing_extensions[*]}"
-fi
+[ ${#missing_tools[@]} -gt 0 ] && echo "Outils a installer : ${missing_tools[*]}"
+[ ${#missing_extensions[@]} -gt 0 ] && echo "Extensions VSCode a installer : ${missing_extensions[*]}"
 
-read -p "Voulez-vous lancer l'installation automatique ? (O/N) " response
-if [[ "$response" != "O" && "$response" != "o" ]]; then
-  echo "Installation annulee."
-  exit 0
-fi
+read -p "Lancer l'installation avec versions verrouillees ? (O/N) " r
+[[ "$r" != "O" && "$r" != "o" ]] && echo "Installation annulee." && exit 0
 
-# Installer outils
+# -------------------------
+# Installation
+# -------------------------
+sudo apt update
+
 for tool in "${missing_tools[@]}"; do
   echo
-  echo "Installation : $tool version ${tools[$tool]}"
+  echo "Installation de $tool"
 
-  case $tool in
-    "git")
-      sudo apt update
-      sudo apt install -y git
+  case "$tool" in
+    git)
+      sudo apt install -y git="$GIT_VERSION"
       ;;
-    "code")
-      if ! command -v code >/dev/null 2>&1; then
-        sudo snap install --classic code --channel=1.91/stable
-      fi
+    vagrant)
+      sudo apt install -y vagrant="$VAGRANT_VERSION"* || {
+        echo "Version exacte de Vagrant indisponible via apt."
+        exit 1
+      }
       ;;
-    "vagrant")
-      sudo apt update
-      sudo apt install -y vagrant
+    virtualbox)
+      sudo apt install -y "virtualbox-$VIRTUALBOX_VERSION"
       ;;
-    "virtualbox")
-      sudo apt update
-      sudo apt install -y virtualbox
-      ;;
-    "docker")
-      sudo apt update
+    docker)
       sudo apt install -y docker.io docker-compose
-      sudo systemctl enable docker
-      sudo systemctl start docker
+      sudo systemctl enable --now docker
       ;;
-    "kubectl")
-      curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    kubectl)
+      curl -LO "https://dl.k8s.io/release/$KUBECTL_VERSION/bin/linux/amd64/kubectl"
       sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+      rm kubectl
       ;;
-    *)
-      echo "Installation automatique non disponible pour $tool. Veuillez consulter le site officiel."
+    code)
+      sudo snap install --classic code --channel="$VSCODE_CHANNEL"
       ;;
   esac
 done
 
-# Installer extensions VSCode
+# -------------------------
+# Extensions VSCode
+# -------------------------
 for ext in "${missing_extensions[@]}"; do
-  echo "Installation VSCode extension : $ext"
   code --install-extension "$ext"
 done
 
-echo "Installation terminee."
+echo
+echo "Installation terminee avec versions controlees."

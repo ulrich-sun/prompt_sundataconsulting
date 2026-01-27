@@ -10,7 +10,7 @@ $tools = @(
     @{ Name="VirtualBox"; Check="VirtualBox"; Version="7.0.14"; WingetId="Oracle.VirtualBox"; ChocolateyId="virtualbox"; URL="https://www.virtualbox.org/wiki/Downloads" },
     @{ Name="Vagrant"; Command="vagrant"; Version="2.4.9"; WingetId="HashiCorp.Vagrant"; ChocolateyId="vagrant"; URL="https://www.vagrantup.com/downloads" },
     @{ Name="Git Bash"; Command="bash"; Version="2.41"; WingetId="Git.Git"; ChocolateyId="git"; URL="https://git-scm.com/download/win" },
-    @{ Name="MobaXterm"; Path="C:\Program Files (x86)\Mobatek\MobaXterm\MobaXterm.exe"; Version="24.4"; WingetId="Mobatek.MobaXterm"; ChocolateyId="mobaxterm"; URL="https://mobaxterm.mobatek.net/download.html" }
+    @{ Name="MobaXterm"; Path="C:\Program Files (x86)\Mobatek\MobaXterm\MobaXterm.exe"; Version="25.4"; WingetId="Mobatek.MobaXterm"; ChocolateyId="mobaxterm"; URL="https://mobaxterm.mobatek.net/download.html" }
 )
 
 # ------------------------
@@ -157,3 +157,4 @@ foreach ($ext in $missingExtensions) {
 
 Write-Host "`nInstallation terminee."
 pause
+
